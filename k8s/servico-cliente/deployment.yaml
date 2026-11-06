@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: servico-cliente
+  namespace: cloudnative-u4
+  labels:
+    app: servico-cliente
+    part-of: u4-cloudnative
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: servico-cliente
+  template:
+    metadata:
+      labels:
+        app: servico-cliente
+        part-of: u4-cloudnative
+    spec:
+      containers:
+        - name: servico-cliente
+          image: michelazevedo/u4-servico-cliente:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          env:
+            # Nome do Service do servico-dados (DNS interno do Kubernetes)
+            - name: DADOS_URL
+              value: "http://servico-dados:5000"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10

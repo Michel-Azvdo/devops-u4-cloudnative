@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: servico-dados
+  namespace: cloudnative-u4
+  labels:
+    app: servico-dados
+    part-of: u4-cloudnative
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: servico-dados
+  template:
+    metadata:
+      labels:
+        app: servico-dados
+        part-of: u4-cloudnative
+    spec:
+      containers:
+        - name: servico-dados
+          image: michelazevedo/u4-servico-dados:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          # requests = o minimo reservado; limits = o maximo permitido
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
