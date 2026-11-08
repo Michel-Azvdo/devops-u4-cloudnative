@@ -61,8 +61,10 @@ jobs:
 
       - name: Testar o servico cliente dentro do cluster
         run: |
-          kubectl run teste-curl --rm -i --restart=Never -n cloudnative-u4 \
-            --image=curlimages/curl -- curl -s http://servico-cliente:5000/cliente
-
+             kubectl port-forward -n cloudnative-u4 svc/servico-cliente 8081:5000 &
+             sleep 5
+             echo "=== Resposta do servico-cliente ==="
+             curl -sf http://localhost:8081/cliente
+             
       - name: Mostrar o estado final
         run: kubectl get pods,svc -n cloudnative-u4
