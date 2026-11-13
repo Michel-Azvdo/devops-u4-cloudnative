@@ -16,10 +16,14 @@ spec:
       labels:
         app: servico-dados
         part-of: u4-cloudnative
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5000"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
         - name: servico-dados
-          image: michelazevedo/u4-servico-dados:v1
+          image: michelazevedo/u4-servico-dados:v3
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000

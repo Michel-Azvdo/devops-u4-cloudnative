@@ -32,9 +32,8 @@ jobs:
           push: true
           # v1 = versao estavel; sha = tag unica deste commit (rastreabilidade)
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/u4-${{ matrix.service }}:v1
-            ${{ secrets.DOCKERHUB_USERNAME }}/u4-${{ matrix.service }}:${{ github.sha }}
-
+               ${{ secrets.DOCKERHUB_USERNAME }}/u4-${{ matrix.service }}:v3
+               ${{ secrets.DOCKERHUB_USERNAME }}/u4-${{ matrix.service }}:${{ github.sha }}
   # Job 2: sobe um cluster temporario e aplica os manifestos
   deploy:
     runs-on: ubuntu-latest
@@ -49,8 +48,8 @@ jobs:
           cluster_name: u4-ci
 
       - name: Usar a imagem exata deste commit nos manifestos
-        run: sed -i "s|:v1|:${{ github.sha }}|" k8s/servico-dados/deployment.yaml k8s/servico-cliente/deployment.yaml
-
+        run: sed -i "s|:v3|:${{ github.sha }}|" k8s/servico-dados/deployment.yaml k8s/servico-cliente/deployment.yaml
+           
       - name: Aplicar manifestos com kustomize
         run: kubectl apply -k k8s
 
