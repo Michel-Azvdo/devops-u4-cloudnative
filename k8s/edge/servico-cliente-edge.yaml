@@ -1,0 +1,92 @@
+# Buffer local: volume persistente que guarda cache, eventos e logs
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: edge-buffer
+  namespace: edge-u4
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: servico-cliente-edge
+  namespace: edge-u4
+  labels:
+    app: servico-cliente-edge
+    part-of: u4-cloudnative
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: servico-cliente-edge
+  template:
+    metadata:
+      labels:
+        app: servico-cliente-edge
+        part-of: u4-cloudnative
+    spec:
+      containers:
+        - name: servico-cliente-edge
+          image: michelazevedo/u4-servico-cliente-edge:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          env:
+            - name: DADOS_URL
+              value: "http://servico-dados.cloudnative-u4:5000"
+            - name: DADOS_TIMEOUT
+              value: "2"
+            - name: BUFFER_DIR
+              value: "/buffer"
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 96Mi
+          # Probes tolerantes a conectividade instavel: nenhuma delas depende
+          # da central, e toleram varias falhas/timeouts antes de agir.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 5000
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          volumeMounts:
+            - name: buffer
+              mountPath: /buffer
+      volumes:
+        - name: buffer
+          persistentVolumeClaim:
+            claimName: edge-buffer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: servico-cliente-edge
+  namespace: edge-u4
+  labels:
+    app: servico-cliente-edge
+spec:
+  type: ClusterIP
+  selector:
+    app: servico-cliente-edge
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000

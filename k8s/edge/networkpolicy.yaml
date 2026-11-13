@@ -1,0 +1,35 @@
+# Politica restritiva: o no de borda so recebe trafego interno e so fala com
+# o DNS do cluster e com a central (cloudnative-u4, porta 5000).
+# Obs.: o CNI "bridge" do Minikube nao aplica NetworkPolicy; o manifesto
+# declara o isolamento e passa a valer em um cluster com CNI compativel.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-restritiva
+  namespace: edge-u4
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 5000
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudnative-u4
+      ports:
+        - protocol: TCP
+          port: 5000

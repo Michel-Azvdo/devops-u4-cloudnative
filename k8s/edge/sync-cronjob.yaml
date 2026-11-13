@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: edge-sync-script
+  namespace: edge-u4
+data:
+  sync.py: |
+    import json
+    import os
+    import sys
+    import urllib.request
+
+    BUFFER = os.getenv("BUFFER_DIR", "/buffer")
+    CENTRAL = os.getenv("CENTRAL_URL", "http://central-receiver.cloudnative-u4:5000/sync")
+    EVENTOS = os.path.join(BUFFER, "eventos.jsonl")
+    ENVIANDO = os.path.join(BUFFER, "eventos.enviando.jsonl")
+
+
+    def devolver_lote():
+        """Devolve o lote ao buffer (envio falhou ou sobrou de uma execucao anterior)."""
+        if os.path.exists(ENVIANDO):
+            with open(ENVIANDO) as origem, open(EVENTOS, "a") as destino:
+                destino.write(origem.read())
+            os.remove(ENVIANDO)
+
+
+    devolver_lote()
+
+    if not os.path.exists(EVENTOS) or os.path.getsize(EVENTOS) == 0:
+        print("nada para sincronizar")
+        sys.exit(0)
+
+    # Congela o lote atual: novos eventos da aplicacao vao para um arquivo novo
+    os.rename(EVENTOS, ENVIANDO)
+    with open(ENVIANDO) as f:
+        eventos = [json.loads(linha) for linha in f if linha.strip()]
+
+    pedido = urllib.request.Request(
+        CENTRAL,
+        data=json.dumps({"eventos": eventos}).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(pedido, timeout=5) as resposta:
+            print(f"sincronizado: {len(eventos)} eventos enviados -> {resposta.read().decode().strip()}")
+        os.remove(ENVIANDO)
+    except Exception as erro:
+        print(f"central indisponivel: {len(eventos)} eventos mantidos no buffer ({erro})")
+        devolver_lote()
+        sys.exit(1)
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: edge-sync
+  namespace: edge-u4
+spec:
+  schedule: "*/2 * * * *"
+  suspend: true
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: sync
+              image: michelazevedo/u4-servico-cliente-edge:v1
+              imagePullPolicy: IfNotPresent
+              command: ["python", "/script/sync.py"]
+              env:
+                - name: BUFFER_DIR
+                  value: "/buffer"
+                - name: CENTRAL_URL
+                  value: "http://central-receiver.cloudnative-u4:5000/sync"
+              volumeMounts:
+                - name: buffer
+                  mountPath: /buffer
+                - name: script
+                  mountPath: /script
+          volumes:
+            - name: buffer
+              persistentVolumeClaim:
+                claimName: edge-buffer
+            - name: script
+              configMap:
+                name: edge-sync-script

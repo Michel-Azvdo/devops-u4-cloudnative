@@ -1,0 +1,7 @@
+# Namespace que representa o no de borda (edge)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: edge-u4
+  labels:
+    papel: borda
